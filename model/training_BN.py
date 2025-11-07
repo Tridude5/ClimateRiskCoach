@@ -75,7 +75,7 @@ def learn_intraslice_edges(df_disc: pd.DataFrame, nodes: List[str]) -> List[Tupl
     data = df_disc.loc[:, cols].dropna()
     scoring_method = _pick_scoring(data, prefer="bic")
 
-    # IMPORTANT: pass scoring to estimate(), not to the constructor
+    # IMPORTANT: pass scoring to estimate(), not to the constructor (version-safe)
     hc = HillClimbSearch(data)
     model = hc.estimate(scoring_method=scoring_method)
     return [(str(u), str(v)) for (u, v) in model.edges()]
@@ -172,32 +172,40 @@ def fit_dbn_em(  # keep original name so callers don't change
     Key points:
     - We construct a proper two-slice training frame with tuple columns (var,0)/(var,1)
       from the **base-time** variables in df_disc. This avoids any dependency on *_1 columns.
-    - This works whether df_disc is your base-time discretized table or your 2-slice table
-      (we automatically ignore *_1 in the latter case).
+    - Then we FLATTEN to string columns that match your pgmpy build's expectation:
+        (v,0) -> "v"    and   (v,1) -> "v_1"
     """
     # Build the DBN structure
     dbn = build_dbn(intraslice_edges, temporal_edges)
 
     # Build the two-slice training matrix from base-time vars only
-    train_df = make_two_slice_training(df_disc)
+    train_df_tuple = make_two_slice_training(df_disc)
 
-    # Reorder columns to match the DBN's nodes exactly and validate presence
-    node_order_raw = list(dbn.nodes())  # DynamicNode objects or tuples
+    # Reorder tuple columns to match the DBN's nodes exactly (for sanity)
+    node_order_raw = list(dbn.nodes())              # DynamicNode objects or tuples
     node_order = [_node_to_tuple(n) for n in node_order_raw]
 
-    missing = [c for c in node_order if c not in train_df.columns]
+    missing = [c for c in node_order if c not in train_df_tuple.columns]
     if missing:
         raise ValueError(f"Training frame missing columns for DBN nodes: {missing}")
-    train_df = train_df[node_order]
+    train_df_tuple = train_df_tuple[node_order]
+
+    # ---- FLATTEN to string columns for pgmpy.fit() ----
+    # Map (v,0) -> "v", (v,1) -> "v_1"
+    flat_cols = []
+    for v, ts in train_df_tuple.columns:
+        flat_cols.append(f"{v}_1" if int(ts) == 1 else str(v))
+    train_df_str = train_df_tuple.copy()
+    train_df_str.columns = flat_cols
 
     # Fit parameters: try plain fit; if version requires explicit estimator, fall back.
     try:
-        dbn.fit(train_df)
+        dbn.fit(train_df_str)
     except TypeError:
         if MaximumLikelihoodEstimator is not None:
-            dbn.fit(train_df, estimator=MaximumLikelihoodEstimator)
+            dbn.fit(train_df_str, estimator=MaximumLikelihoodEstimator)
         elif BayesianEstimator is not None:
-            dbn.fit(train_df, estimator=BayesianEstimator, prior_type="BDeu", equivalent_sample_size=5)
+            dbn.fit(train_df_str, estimator=BayesianEstimator, prior_type="BDeu", equivalent_sample_size=5)
         else:
             raise
 
