@@ -1,3 +1,22 @@
 /.git
 /.ipynb_checkpoints
 */__pycache__
+
+
+# --- Virtual environments ---
+.venv311/
+.venv/
+venv/
+
+# --- Python cache & compiled files ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- VS Code settings ---
+.vscode/
+
+# --- Build / data artifacts ---
+artifacts/
+data_sources/processed/

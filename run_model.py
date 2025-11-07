@@ -1,11 +1,10 @@
 # run_model.py
 
-
 from pathlib import Path
 import pandas as pd
 
-# --- 1) Data: build monthly table with 1M climate lag (you already have this) ---
-from utils.get_data import build_feature_table
+# --- 1) Data: ensure processed CSVs exist + build monthly table with 1M climate lag ---
+from utils.get_data import ensure_processed_data, build_feature_table
 
 # --- 2) Regime labeling: GMM + financial rules + hysteresis ---
 from model.regime import hybrid_regime
@@ -32,7 +31,11 @@ def main():
     # ------------------------------------------------------------------
     # A) BUILD DATA
     # ------------------------------------------------------------------
+    # Auto-create data_sources/processed/ if missing (converts GISTEMP; placeholders for others)
+    ensure_processed_data()
+
     df = build_feature_table().copy()
+    print(f"[INFO] Feature table ready: shape={df.shape}")
 
     # Required columns (rename here if your names differ)
     # Climate (lagged 1M inside build_feature_table()):
