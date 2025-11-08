@@ -1,0 +1,16 @@
+{
+  "name": "Python 3.12 (Trixie · Colab-like)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  },
+  "postCreateCommand": "python -m pip install -U pip && pip install -r .devcontainer/requirements-colab-like.txt && python - <<'PY'\nimport sys, IPython, numpy, pandas, scipy, statsmodels, matplotlib, seaborn, yfinance\nprint('Python', sys.version.split()[0])\nprint('IPython', IPython.__version__)\nprint('numpy', numpy.__version__)\nprint('pandas', pandas.__version__)\nprint('scipy', scipy.__version__)\nprint('statsmodels', statsmodels.__version__)\nprint('matplotlib', matplotlib.__version__)\nprint('seaborn', seaborn.__version__)\nprint('yfinance', yfinance.__version__)\nPY"
+}
