@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Tuple
 import pandas as pd
 
-# ---- pgmpy imports (robust across versions) ----
+# pgmpy imports
 from pgmpy.estimators import HillClimbSearch, PC
 from pgmpy.models import DynamicBayesianNetwork as DBN
 from pgmpy.inference import DBNInference

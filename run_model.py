@@ -4,34 +4,34 @@ from pathlib import Path
 import pandas as pd
 import traceback
 
-# ---------------- Logging + artifacts folder ----------------
+# Logging + artifacts folder
 ART = Path("artifacts")
 ART.mkdir(exist_ok=True)
 
 def log(msg: str): print(f"[OK] {msg}")
 def step(msg: str): print(f"\n=== {msg} ===")
 
-# --- 1) Data: ensure processed CSVs exist + build monthly table with 1M climate lag ---
+# 1) Data: ensure processed CSVs exist + build monthly table with 1M climate lag 
 from utils.get_data import ensure_processed_data, build_feature_table
 
-# --- 2) Regime labeling: GMM + financial rules + hysteresis ---
+# 2) Regime labeling: GMM + financial rules + hysteresis 
 from model.regime import hybrid_regime
 
-# --- 3) Discretization (K-Means / equal-frequency) ---
+# 3) Discretization (K-Means / equal-frequency)
 from model.discretize import discretize_frame
 
-# --- 4) Learn structure + fit EM on a 2-slice Dynamic BN ---
+# 4) Learn structure + fit EM on a 2-slice Dynamic BN 
 from model.training_BN import (
     learn_intraslice_edges,
-    learn_pc_edges,           # optional robustness check
+    learn_pc_edges,        
     fit_dbn_em,
 )
 
-# --- 5) Walk-forward backtest & metrics ---
+# 5) Walk-forward backtest & metrics 
 from model.backtest import run_rolling
 from model.metrics import sharpe, sortino, max_drawdown, classification_metrics
 
-# --- 6) Visualization (DAG) ---
+# 6) Visualization (DAG)
 from model.visualize_network import dag_viz   # node size=importance; edge width=MI
 
 
@@ -52,7 +52,7 @@ def main():
     except Exception:
         pass
 
-    # Required columns (rename here if your names differ)
+    # Required columns
     climate_cols = ["TempAnom", "Carbon", "CPU"]
     market_cols  = ["VIX", "TermSpread", "IGSpreadChg", "SPX_ret", "Bond_ret"]
 
@@ -126,7 +126,7 @@ def main():
     # ------------------------------------------------------------------
     step("Structure learning")
     edges_hc = learn_intraslice_edges(df_dbn, nodes)   # use 2-slice table for stability
-    # edges_pc = learn_pc_edges(df_dbn, nodes)         # optional
+    # edges_pc = learn_pc_edges(df_dbn, nodes)         
     log(f"intraslice edges = {len(edges_hc)}")
 
     temporal_edges = [
@@ -183,7 +183,7 @@ def main():
                 )
                 raise KeyError(f"Training window missing columns: {miss}")
 
-            # learn intra-slice structure on window (use current-time node names)
+            # learn intra-slice structure on window 
             edges_hc_local = learn_intraslice_edges(train_slice, nodes)
 
             # Fit DBN parameters on the same 2-slice window

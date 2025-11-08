@@ -21,7 +21,7 @@ def build_dbn(
     for u, v in intraslice_edges + temporal_parents:
         vars_set.add(u); vars_set.add(v)
 
-    # Add base variables (pgmpy will manage timeslices)
+    # Add base variables 
     dbn.add_nodes_from(sorted(vars_set))
 
     # Intra-slice edges for t=0 and t=1
@@ -31,7 +31,7 @@ def build_dbn(
     # Temporal edges t -> t+1
     dbn.add_edges_from([((u, 0), (v, 1)) for (u, v) in temporal_parents])
 
-    # ✅ finalize the two-slice template (required for some pgmpy builds)
+    # finalize the two-slice template
     dbn.initialize_initial_state()
 
     return dbn

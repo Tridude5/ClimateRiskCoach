@@ -9,7 +9,7 @@ import traceback
 ART = Path("artifacts")
 ART.mkdir(exist_ok=True)
 
-# ---------- helpers ----------
+# helpers
 def _node_for(model, var_name: str, ts: int):
     """Find a model node by (variable name, timeslice)."""
     for n in model.nodes():
@@ -61,7 +61,7 @@ def _node_evidence(ev_row: pd.Series, node0_map: Dict[str, Any]) -> Dict[Any, in
             pass
     return out
 
-# ---------- strong guardrails ----------
+# strong guardrails
 def _ensure_lags_on(evidence: pd.DataFrame) -> pd.DataFrame:
     """
     Guarantee for every base column 'X' there exists 'X_1'.
@@ -90,7 +90,7 @@ def _ensure_lags_on(evidence: pd.DataFrame) -> pd.DataFrame:
     ev = ev.loc[:, base_vars + lag_vars]
     return ev
 
-# ---------- main ----------
+# main
 def run_rolling(
     retrain_fn: Callable[[int], Any],     # -> (infer, model) retrained up to train_end_idx
     evidence: pd.DataFrame,               # discretized features (REGIME absent). May include *_1, but not required.
@@ -118,7 +118,7 @@ def run_rolling(
         cols = [str(c) for c in evidence.columns]
         base_vars = [c for c in cols if not c.endswith("_1")]
 
-        # 2) Dates subset (optional)
+        # 2) Dates subset
         all_dates = list(pd.Index(dates))
         if recent_only and len(all_dates) > recent_only:
             all_dates = all_dates[-recent_only:]
@@ -160,7 +160,7 @@ def run_rolling(
 
             prev_t = idx_list[prev_pos]
 
-            # --- Strictly pass ONLY base (t) variables for inference (timeslice 0)
+            # Strictly pass ONLY base (t) variables for inference (timeslice 0)
             ev_row = evidence.loc[prev_t, base_vars]
 
             # (1) Ensure model is trained up to t-1
