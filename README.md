@@ -1,7 +1,7 @@
 # ClimateRiskCoach
 
-ClimateRiskCoach is a simple project that looks at how climate and environmental data can be used to understand potential risks from climate change.
-The main idea is to use data and basic machine learning to find trends, predict risk levels, and show results in a way that’s easy to read and interpret.
+ClimateRiskCoach is a project that looks at how climate and environmental data can be used to understand potential risks from climate change.
+The main idea is to use data and Dynamic Bayesian Decision Networks to find trends, predict risk levels, and show results in a way that’s easy to read and interpret.
 
 Python 3.11.9 required. 3.12 will lead to version mismatches with pgmpy. 
 
