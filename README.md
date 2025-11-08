@@ -20,3 +20,22 @@ Python 3.11.9 required. 3.12 will lead to version mismatches with pgmpy.
 | **model/metrics.py**              | Calculates model evaluation metrics.                                                          | Measures predictive strength and error.            |
 | **model/visualize_network.py**    | Draws the Bayesian network structure.                                                         | Helps interpret model connections visually.        |
 | **artifacts/**                    | Stores results, saved models, and generated visual outputs.                                   | Keeps project outputs for later review.            |
+
+
+
+
+
+
+
+
+| File / Folder               | Description                                                           | Purpose                                                      |
+| --------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **data_sources/raw/**       | Contains original, unprocessed climate and environmental data.        | Serves as the starting point for all analysis.               |
+| **data_sources/processed/** | Stores cleaned and transformed datasets ready for modeling.           | Provides reliable, standardized data for the model.          |
+| **utils/get_data.py**       | Loads data from files or online sources.                              | Automates data retrieval for the project.                    |
+| **utils/cleaning.py**       | Cleans, filters, and formats raw data.                                | Ensures data quality and consistency.                        |
+| **utils/plotting.py**       | Creates charts, graphs, and summary visuals.                          | Helps interpret model outputs and data trends.               |
+| **Climate.ipynb**           | Jupyter Notebook for exploration and visual presentation.             | Lets users test, analyze, and explain results interactively. |
+| **run_model.py**            | Main Python script that runs the entire pipeline.                     | Connects all parts (data → model → output) automatically.    |
+| **artifacts/**              | Stores model outputs, generated figures, and saved results.           | Keeps reproducible project artifacts for review.             |
+| **.gitignore**              | Excludes unnecessary files (like data or cache) from version control. | Keeps the project repository clean and efficient.            |
