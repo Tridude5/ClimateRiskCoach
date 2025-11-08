@@ -209,27 +209,107 @@ def main():
         log(f"backtest rows = {len(bt)}")
 
         # ------------------------------------------------------------------
-        # F) METRICS & OUTPUTS
+        # F) METRICS & OUTPUTS (robust to different run_rolling returns)
         # ------------------------------------------------------------------
-        perf = {
-            "Sharpe":  sharpe(bt["net"]),
-            "Sortino": sortino(bt["net"]),
-            "MaxDD":   max_drawdown(bt["net"]),
-        }
-        print("\nPortfolio (DBDN Tactical) performance:")
-        for k, v in perf.items():
-            print(f"  {k:7s}: {v: .4f}")
+        # Normalize bt: accept either DataFrame or tuple
+        if isinstance(bt, tuple):
+            # Expect (df_bt,) or (y_true, y_pred, p_off, returns_df) — adapt gracefully
+            if len(bt) == 1 and isinstance(bt[0], pd.DataFrame):
+                bt = bt[0]
+            else:
+                # Build a DataFrame shell if possible
+                y_true_bt = None
+                y_pred_bt = None
+                p_off_bt  = None
+                ret_bt    = None
+                for obj in bt:
+                    if isinstance(obj, pd.Series):
+                        nm = getattr(obj, "name", "") or ""
+                        if nm.lower() in ("y_true","true","regime_true"):
+                            y_true_bt = obj
+                        elif nm.lower() in ("y_pred","pred","decision"):
+                            y_pred_bt = obj
+                        elif nm.lower() in ("p_off","p_risk_off","prob_off"):
+                            p_off_bt = obj
+                        elif nm.lower() in ("net","returns","net_ret","portfolio_ret"):
+                            ret_bt = obj
+                    elif isinstance(obj, pd.DataFrame):
+                        if "net" in obj.columns:
+                            ret_bt = obj["net"]
+                bt = pd.DataFrame()
+                if ret_bt is not None:
+                    bt["net"] = ret_bt
+                if y_pred_bt is not None:
+                    bt["decision"] = y_pred_bt
+                if p_off_bt is not None:
+                    bt["p_off"] = p_off_bt
 
-        dec_map = {"risk_off": 0, "risk_neut": 1, "risk_on": 2}
-        y_pred = bt["decision"].map(dec_map)
-        y_true = df.loc[bt.index, "REGIME"].astype(int)
+        # ---------- Portfolio metrics ----------
+        net_candidates = ["net", "portfolio_ret", "ret", "net_ret", "strategy_ret"]
+        net_col = next((c for c in net_candidates if c in bt.columns), None)
 
-        clf = classification_metrics(y_true, y_pred, p_off=bt["p_off"])
-        print("\nRegime timing metrics:")
-        for k, v in clf.items():
-            if k != "confusion":
-                print(f"  {k:12s}: {v}")
-        print("  confusion:\n", clf["confusion"])
+        if net_col is not None:
+            try:
+                perf = {
+                    "Sharpe":  sharpe(bt[net_col]),
+                    "Sortino": sortino(bt[net_col]),
+                    "MaxDD":   max_drawdown(bt[net_col]),
+                }
+                print("\nPortfolio (DBDN Tactical) performance:")
+                for k, v in perf.items():
+                    print(f"  {k:7s}: {v: .4f}")
+            except Exception as _e:
+                print("[WARN] Portfolio metric calc failed:", _e)
+        else:
+            print("[WARN] No net return column found in backtest output "
+                  f"(looked for {net_candidates}). Skipping portfolio metrics.")
+
+        # ---------- Classification metrics ----------
+        # y_true from labeled df, aligned to bt index
+        try:
+            y_true = df.loc[bt.index, "REGIME"].astype(int)
+        except Exception as _e:
+            y_true = None
+            print("[WARN] Could not align y_true (REGIME) to backtest index:", _e)
+
+        # y_pred from bt["decision"] (numeric or string)
+        y_pred = None
+        if "decision" in bt.columns:
+            ser = bt["decision"]
+            if pd.api.types.is_numeric_dtype(ser):
+                y_pred = ser.astype(int)
+            else:
+                dec_map = {"risk_off": 0, "risk_neut": 1, "risk_on": 2,
+                           "off": 0, "neutral": 1, "on": 2}
+                y_pred = ser.astype(str).str.lower().map(dec_map)
+        elif "regime_pred" in bt.columns:
+            y_pred = bt["regime_pred"].astype(int)
+
+        # p_off best-effort
+        p_off = None
+        for cand in ["p_off", "p_risk_off", "prob_off"]:
+            if cand in bt.columns:
+                p_off = bt[cand].astype(float)
+                break
+
+        if (y_true is not None) and (y_pred is not None):
+            try:
+                clf = classification_metrics(y_true, y_pred, p_off=p_off)
+                print("\nRegime timing metrics:")
+                for k, v in clf.items():
+                    if k != "confusion":
+                        try:
+                            print(f"  {k:12s}: {float(v):.4f}")
+                        except Exception:
+                            print(f"  {k:12s}: {v}")
+                print("  confusion:\n", clf["confusion"])
+            except Exception as _e:
+                print("[WARN] Classification metrics failed:", _e)
+        else:
+            if y_true is None:
+                print("[WARN] Missing y_true (REGIME) — cannot compute classification metrics.")
+            if y_pred is None:
+                print("[WARN] Missing y_pred/decision in backtest output — cannot compute classification metrics.")
 
     except Exception as e:
         (ART / "error.txt").write_text(str(e))

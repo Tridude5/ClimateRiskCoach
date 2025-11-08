@@ -25,7 +25,7 @@ def _node_for(model, var_name: str, ts: int):
     raise KeyError(f"Node not found: ({var_name}, {ts})")
 
 def _prob_off_from_factor(factor, var_key):
-    """Extract P(REGIME=0 | evidence) from an inference result."""
+    """Extract P(REGIME=0 | evidence) from an inference result (robust across pgmpy versions)."""
     st_names = getattr(factor, "state_names", None)
     if st_names and (var_key in st_names):
         order = st_names[var_key]
@@ -117,7 +117,6 @@ def run_rolling(
         # 1) Split base vs lag; we will use ONLY base vars for inference
         cols = [str(c) for c in evidence.columns]
         base_vars = [c for c in cols if not c.endswith("_1")]
-        # lag_vars  = [c for c in cols if c.endswith("_1")]  # not needed for inference
 
         # 2) Dates subset (optional)
         all_dates = list(pd.Index(dates))
