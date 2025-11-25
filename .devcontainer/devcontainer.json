@@ -1,6 +1,13 @@
 {
   "name": "Python 3.12 (Trixie · Colab-like)",
+  
+  // Use Trixie - Debian 13 with Colab compatible Python 3.12
   "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
+  
+  // Mount Codespaces persisted area
+  "mounts": [
+    "source=/workspaces/.codespaces/.persistedshare/bash_history,target=/home/vscode/.bash_history,type=bind"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
