@@ -1,8 +1,8 @@
 {
-  "name": "Python 3.12 (Trixie · Colab-like)",
+  "name": "Python 3.11 (Trixie · Colab-like)",
   
-  // Use Trixie - Debian 13 with Colab compatible Python 3.12
-  "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
+  // Use Trixie - Debian 13 with Colab compatible Python 3.11 - gpmpy needs 3.11
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-trixie",
   
   // Mount Codespaces persisted area
   "mounts": [
