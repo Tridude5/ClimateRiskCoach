@@ -2,7 +2,7 @@
 set -euo pipefail
 
 
-# 1. Update ~/.bashrc with Dev Container history settings
+echo ">>> 1. Update ~/.bashrc with Dev Container history settings"
 {
   echo ""
   echo "# Dev Container history settings"
@@ -13,12 +13,14 @@ set -euo pipefail
 } >> ~/.bashrc
 
 
-# 2. Install packages
+
+echo ">>> 2. Install Python packages from the requirements-colab-like.txt"
 python -m pip install -U pip
 pip install -r .devcontainer/requirements-colab-like.txt
 
 
-# 3. Print versions (your inline Python block)
+
+echo ">>> 3. Print the most important Python package versions to confirm install"
 python - <<'PY'
 import sys, IPython, numpy, pandas, scipy, statsmodels, matplotlib, seaborn, yfinance
 print('Python', sys.version.split()[0])
