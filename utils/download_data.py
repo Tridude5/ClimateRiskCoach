@@ -1,9 +1,10 @@
+import logging
 import pandas as pd
-import requests
 import matplotlib.pyplot as plt
 from typing import Optional
 
 
+logger = logging.getLogger(__name__)
 
 def download_silso_sunspot_daily(url: str = "https://www.sidc.be/SILSO/DATA/SN_d_tot_V2.0.csv") -> pd.DataFrame:
     """
@@ -39,6 +40,9 @@ def download_silso_sunspot_daily(url: str = "https://www.sidc.be/SILSO/DATA/SN_d
     - The returned series represents the official daily international sunspot 
       number (1-day cadence).
     """
+    
+    logger.info("Downloading SILSO daily sunspot data from %s", url)
+
     # Load the semicolon-separated SILSO dataset
     df = pd.read_csv(
         url,
@@ -55,6 +59,8 @@ def download_silso_sunspot_daily(url: str = "https://www.sidc.be/SILSO/DATA/SN_d
 
     # Index by date and keep only the sunspot number
     df = df.set_index("date")[["sunspot_number"]].astype(float)
+
+    logger.info("SILSO sunspot data loaded: %d rows", len(df))
 
     return df
 
@@ -101,6 +107,8 @@ def download_penticton_f107_daily(start_year: int = 2004, end_year: Optional[int
     if end_year is None:
         end_year = pd.Timestamp.utcnow().year
 
+    logger.info("Downloading Penticton F10.7 daily data from %d to %d", start_year, end_year,)
+
     frames: list[pd.DataFrame] = []
 
     for y in range(start_year, end_year + 1):
@@ -112,6 +120,7 @@ def download_penticton_f107_daily(start_year: int = 2004, end_year: Optional[int
         try:
             tbl = next(t for t in tables if any("Observed Flux" in str(c) for c in t.columns))
         except StopIteration as exc:
+            logger.error("Could not locate Penticton flux table for year %d at %s", y, url)
             raise ValueError(f"Could not locate the Penticton flux table for year {y} at {url}") from exc
 
         # Normalize column names
@@ -135,6 +144,8 @@ def download_penticton_f107_daily(start_year: int = 2004, end_year: Optional[int
 
         # Accumulate per-year slices
         frames.append(df)
+
+    logger.info("Penticton F10.7 data loaded: %d rows from %d to %d", len(df_out), start_year, end_year)
 
     df_out = pd.concat(frames).sort_index()
 
