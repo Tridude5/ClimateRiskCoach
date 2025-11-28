@@ -145,9 +145,8 @@ def download_penticton_f107_daily(start_year: int = 2004, end_year: Optional[int
         # Accumulate per-year slices
         frames.append(df)
 
-    logger.info("Penticton F10.7 data loaded: %d rows from %d to %d", len(df_out), start_year, end_year)
-
     df_out = pd.concat(frames).sort_index()
+    logger.info("Penticton F10.7 data loaded: %d rows from %d to %d", len(df_out), start_year, end_year)
 
     return df_out
 
