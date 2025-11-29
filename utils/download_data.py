@@ -150,3 +150,101 @@ def download_penticton_f107_daily(start_year: int = 2004, end_year: Optional[int
 
     return df_out
 
+
+
+
+
+def load_gistemp_global_monthly(file_path: str = "/content/climate/data_sources/raw/GLB.Ts+dSST.csv") -> pd.DataFrame:
+    """
+    Load the NASA GISTEMP global temperature index (GLB.Ts+dSST)
+    from a CSV file, which is stored in the GitHub repo, 
+    because it was only possible to download it manually.
+    And return it as a monthly time-indexed pandas DataFrame.
+
+    This function searches for the header line containing the
+    'Year' column, drops lines before that. 
+    It also reshapes the monthly anomaly columns into a continuous format, 
+    and creates a monthly DatetimeIndex (first day of each month).
+
+    Parameters
+    ----------
+    file_path : str, optional
+        Path to the downloaded GISTEMP ``GLB.Ts+dSST.csv`` file.
+        This should be static for this project.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame indexed by calendar month (DatetimeIndex) with one column:
+            - 'Anomaly' (float): temperature anomaly (in °C) relative to the 
+              1951 - 1980 baseline (as defined by GISTEMP).
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified file does not exist.
+    ValueError
+        If a header row starting with 'Year' cannot be found.
+
+    Notes
+    -----
+    - The CSV may contain metadata lines before the header; these are skipped.
+    - Only the 12 monthly columns (Jan - Dec) are used; other summary columns 
+    are ignored.
+    """
+    logger.info("Loading GISTEMP data from %s", file_path)
+
+    # Find the header row dynamically
+    header_row: int | None = None
+    try:
+        with open(file_path, "r") as f:
+            for i, line in enumerate(f):
+                if line.strip().startswith("Year"):
+                    header_row = i
+                    break
+    except FileNotFoundError:
+        logger.exception("GISTEMP file not found at %s", file_path)
+        raise
+
+    if header_row is None:
+        logger.error("Failed to locate header row starting with 'Year' in %s", file_path)
+        raise ValueError("Could not find a header row starting with 'Year' in the file.")
+
+    logger.info("Header row found at line: %d", header_row)
+
+    # Load data from the detected header row
+    df = pd.read_csv(file_path, skiprows=header_row)
+
+    # Keep only the monthly columns
+    months: list[str] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ]
+
+    logger.debug("Melting monthly columns into long format.")
+    df_monthly = df.melt(
+        id_vars="Year",
+        value_vars=months,
+        var_name="Month",
+        value_name="Anomaly",
+    )
+
+    # Map month names to month numbers
+    month_map: dict[str, int] = {m: i for i, m in enumerate(months, start=1)}
+    df_monthly["Month_num"] = df_monthly["Month"].map(month_map)
+
+    # Create a datetime index (set to first day of month)
+    df_monthly["Date"] = pd.to_datetime(
+        dict(year=df_monthly["Year"], month=df_monthly["Month_num"], day=1)
+    )
+
+    # Sort by date and set as index
+    df_ts = df_monthly[["Date", "Anomaly"]].sort_values("Date").set_index("Date")
+
+    logger.info("\nGISTEMP monthly data series loaded: %d rows", len(df_ts))
+
+    # Log head / tail at DEBUG level
+    logger.debug("\nGISTEMP head:\n%s", df_ts.head(8).to_string())
+    logger.debug("\nGISTEMP tail:\n%s", df_ts.tail(8).to_string())
+
+    return df_ts
