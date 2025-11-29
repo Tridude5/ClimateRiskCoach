@@ -13,14 +13,16 @@ echo ">>> 1. Update ~/.bashrc with Dev Container history settings"
 } >> ~/.bashrc
 
 
+echo ">>> 2. Configure Git to rebase on pull"
+git config --global pull.rebase true
 
-echo ">>> 2. Install Python packages from the requirements-colab-like.txt"
+
+echo ">>> 3. Install Python packages from the requirements-colab-like.txt"
 python -m pip install -U pip
 pip install -r .devcontainer/requirements-colab-like.txt
 
 
-
-echo ">>> 3. Print the most important Python package versions to confirm install"
+echo ">>> 4. Print the most important Python package versions to confirm install"
 python - <<'PY'
 import sys, IPython, numpy, pandas, scipy, statsmodels, matplotlib, seaborn, yfinance
 print('Python', sys.version.split()[0])
@@ -33,3 +35,5 @@ print('matplotlib', matplotlib.__version__)
 print('seaborn', seaborn.__version__)
 print('yfinance', yfinance.__version__)
 PY
+
+
