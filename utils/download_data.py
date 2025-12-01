@@ -58,7 +58,10 @@ def download_silso_sunspot_daily(url: str = "https://www.sidc.be/SILSO/DATA/SN_d
     df["date"] = pd.to_datetime(df[["year", "month", "day"]])
 
     # Index by date and keep only the sunspot number
-    df = df.set_index("date")[["sunspot_number"]].astype(float)
+    df = df.set_index("date")
+    df = df.loc[:, ["sunspot_number"]].astype(float)
+    df = df.sort_index()
+
 
     logger.info("SILSO sunspot data loaded: %d rows", len(df))
 

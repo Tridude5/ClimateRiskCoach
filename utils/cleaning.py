@@ -1,5 +1,7 @@
 import logging
 import pandas as pd
+import numpy as np
+
 
 
 logger = logging.getLogger(__name__)
@@ -141,4 +143,208 @@ def find_nans(df: pd.DataFrame) -> pd.DataFrame:
 
     logger.info("NaN analysis completed.")
     return df_with_nans
+
+
+import logging
+from typing import Callable, Union
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# A resolver takes all rows for a single date and returns exactly one row
+Resolver = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
+
+
+def find_duplicate_dates(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Find rows in a time-indexed DataFrame with the same date index.
+
+    Duplicates are the same dates in the index. All occurrences of
+    duplicate index values are returned (not just the extra copies).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame whose index is expected to be a DatetimeIndex.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing only the rows whose index value appears
+        more than once. If there are no duplicate dates, an empty
+        DataFrame is returned.
+
+    Raises
+    ------
+    TypeError
+        If the DataFrame index is not a DatetimeIndex.
+    """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise TypeError("Index must be a pandas.DatetimeIndex.")
+
+    duplicated_mask = df.index.duplicated(keep=False)
+    duplicates = df[duplicated_mask].sort_index()
+
+    unique_dup_dates = duplicates.index.unique() if not duplicates.empty else []
+    logger.info(
+        "Duplicate date detection: %d duplicate rows across %d unique dates.",
+        len(duplicates),
+        len(unique_dup_dates),
+    )
+
+    if not duplicates.empty:
+        logger.debug("Duplicate rows detected:\n%s", duplicates)
+
+    return duplicates
+
+
+def fix_duplicate_dates(df: pd.DataFrame, resolver: Resolver) -> pd.DataFrame:
+    """
+    Deduplicate a time-indexed DataFrame
+
+    For each date that appears more than once in the index, all rows for that
+    date are passed to the provided 'resolver' function. The resolver 
+    returns one row which will represent that date in the output.
+
+    Common resolver strategies include:
+    - keeping the first row,
+    - keeping the last row,
+    - taking the mean of numeric columns,
+    - interpolating or applying a custom rule.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame indexed by date. Duplicates are defined as repeated index values.
+        The index must be a DatetimeIndex.
+    resolver : Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
+        Function that receives a sub-DataFrame containing all rows for a single
+        date and must return exactly one row (as a DataFrame or Series) representing
+        the resolved entry for that date.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame without duplicate index entries, sorted by index.
+
+    Raises
+    ------
+    TypeError
+        If the DataFrame index is not a DatetimeIndex.
+    ValueError
+        If the resolver does not return exactly one row.
+    """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise TypeError("Index must be a pandas.DatetimeIndex.")
+
+    # Detect duplicates first (for logging & early return)
+    duplicates = find_duplicate_dates(df)
+
+    if duplicates.empty:
+        logger.info("No duplicate dates found. Returning DataFrame sorted by index.")
+        return df.sort_index()
+
+    resolver_name = getattr(resolver, "__name__", repr(resolver))
+    logger.info(
+        "Resolving duplicate dates using resolver '%s'. "
+        "Duplicate rows: %d, unique duplicate dates: %d.",
+        resolver_name,
+        len(duplicates),
+        duplicates.index.nunique(),
+    )
+
+    # Work on a sorted copy to keep deterministic behavior
+    df_sorted = df.sort_index()
+    parts: list[pd.DataFrame] = []
+
+    # Group by index (date)
+    for key, sub in df_sorted.groupby(level=0, sort=False):
+        if len(sub) == 1:
+            # Only a single row for this date, keep as-is
+            parts.append(sub)
+            continue
+
+        logger.debug(
+            "Applying resolver '%s' to date %s with %d rows.",
+            resolver_name,
+            key,
+            len(sub),
+        )
+
+        resolved = resolver(sub)
+
+        # Normalize Series to single-row DataFrame
+        if isinstance(resolved, pd.Series):
+            resolved = resolved.to_frame().T
+
+        if not isinstance(resolved, pd.DataFrame):
+            raise ValueError(
+                "Resolver must return a pandas Series or DataFrame, "
+                f"got {type(resolved)}."
+            )
+
+        if resolved.empty or len(resolved) != 1:
+            raise ValueError(
+                "Resolver must return exactly one row for each duplicated date. "
+                f"Got {len(resolved)} rows for date {key}."
+            )
+
+        # Ensure the index for the resolved row is exactly the date key
+        resolved.index = pd.DatetimeIndex([key])
+        parts.append(resolved)
+
+    out = pd.concat(parts).sort_index()
+    logger.info(
+        "Duplicate resolution completed. Original rows: %d, output rows: %d.",
+        len(df),
+        len(out),
+    )
+    return out
+
+
+
+
+# ---------- Resolvers ----------
+def keep_first(sub: pd.DataFrame) -> pd.DataFrame:
+    """Return the first row for this date."""
+    return sub.iloc[[0]]
+
+
+def keep_last(sub: pd.DataFrame) -> pd.DataFrame:
+    """Return the last row for this date."""
+    return sub.iloc[[-1]]
+
+
+def take_mean(sub: pd.DataFrame) -> pd.DataFrame:
+    """
+    Take column-wise mean for numeric columns; for non-numeric keep first.
+    Returns a single-row DataFrame.
+    """
+    num = sub.select_dtypes(include=[np.number]).mean(numeric_only=True)
+    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
+    mixed = pd.concat([nonnum, num])
+    return mixed.to_frame().T
+
+
+def take_median(sub: pd.DataFrame) -> pd.DataFrame:
+    """Like take_mean but with median for numeric columns."""
+    num = sub.select_dtypes(include=[np.number]).median(numeric_only=True)
+    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
+    mixed = pd.concat([nonnum, num])
+    return mixed.to_frame().T
+
+
+def prefer_non_nan_max(sub: pd.DataFrame) -> pd.DataFrame:
+    """
+    Example policy: for numeric cols pick the max non-NaN; for others keep first.
+    """
+    numeric = {}
+    for col in sub.columns:
+        if pd.api.types.is_numeric_dtype(sub[col]):
+            s = sub[col].dropna()
+            numeric[col] = s.max() if not s.empty else np.nan
+    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
+    mixed = pd.concat([nonnum, pd.Series(numeric)])
+    return mixed.to_frame().T
 
