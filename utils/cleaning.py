@@ -2,6 +2,9 @@ import logging
 import pandas as pd
 import numpy as np
 
+from typing import Callable, Union
+
+
 
 
 logger = logging.getLogger(__name__)
@@ -145,16 +148,6 @@ def find_nans(df: pd.DataFrame) -> pd.DataFrame:
     return df_with_nans
 
 
-import logging
-from typing import Callable, Union
-
-import pandas as pd
-
-logger = logging.getLogger(__name__)
-
-# A resolver takes all rows for a single date and returns exactly one row
-Resolver = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
-
 
 def find_duplicate_dates(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -198,6 +191,9 @@ def find_duplicate_dates(df: pd.DataFrame) -> pd.DataFrame:
 
     return duplicates
 
+
+# A resolver takes all the duplicate rows for a single date and returns exactly one row
+Resolver = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
 
 def fix_duplicate_dates(df: pd.DataFrame, resolver: Resolver) -> pd.DataFrame:
     """
@@ -303,8 +299,6 @@ def fix_duplicate_dates(df: pd.DataFrame, resolver: Resolver) -> pd.DataFrame:
     return out
 
 
-
-
 # ---------- Resolvers ----------
 def keep_first(sub: pd.DataFrame) -> pd.DataFrame:
     """Return the first row for this date."""
@@ -322,29 +316,16 @@ def take_mean(sub: pd.DataFrame) -> pd.DataFrame:
     Returns a single-row DataFrame.
     """
     num = sub.select_dtypes(include=[np.number]).mean(numeric_only=True)
-    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
-    mixed = pd.concat([nonnum, num])
+
+    nonnum_df = sub.select_dtypes(exclude=[np.number])
+    if not nonnum_df.empty:
+        nonnum = nonnum_df.iloc[0]
+        mixed = pd.concat([nonnum, num])
+    else:
+        mixed = num
+
     return mixed.to_frame().T
 
 
-def take_median(sub: pd.DataFrame) -> pd.DataFrame:
-    """Like take_mean but with median for numeric columns."""
-    num = sub.select_dtypes(include=[np.number]).median(numeric_only=True)
-    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
-    mixed = pd.concat([nonnum, num])
-    return mixed.to_frame().T
 
-
-def prefer_non_nan_max(sub: pd.DataFrame) -> pd.DataFrame:
-    """
-    Example policy: for numeric cols pick the max non-NaN; for others keep first.
-    """
-    numeric = {}
-    for col in sub.columns:
-        if pd.api.types.is_numeric_dtype(sub[col]):
-            s = sub[col].dropna()
-            numeric[col] = s.max() if not s.empty else np.nan
-    nonnum = sub.select_dtypes(exclude=[np.number]).iloc[0] if not sub.select_dtypes(exclude=[np.number]).empty else pd.Series(dtype=object)
-    mixed = pd.concat([nonnum, pd.Series(numeric)])
-    return mixed.to_frame().T
 
